@@ -1,26 +1,51 @@
 import { Card } from '../components/ui'
+import { diagnosticoSupabase } from '../lib/supabase'
+
+function Estado({ nombre, presente }: { nombre: string; presente: boolean }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-1.5">
+      <code className="truncate text-xs text-brand-soft">{nombre}</code>
+      <span className={`shrink-0 text-xs ${presente ? 'text-good' : 'text-bad'}`}>
+        {presente ? 'ok' : 'falta'}
+      </span>
+    </li>
+  )
+}
 
 /** Se muestra cuando faltan las variables de entorno de Supabase. */
 export default function SinConfigurar() {
+  const { url, publishableKey, anonKey } = diagnosticoSupabase()
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">Falta conectar Supabase</h1>
+
+      <Card className="space-y-2 text-sm">
+        <h2 className="text-sm font-semibold">Qué llegó a este build</h2>
+        <ul className="divide-y divide-line">
+          <Estado nombre="VITE_SUPABASE_URL" presente={url} />
+          <Estado nombre="VITE_SUPABASE_PUBLISHABLE_KEY" presente={publishableKey} />
+          <Estado nombre="VITE_SUPABASE_ANON_KEY" presente={anonKey} />
+        </ul>
+        <p className="text-xs text-muted">
+          Hace falta la URL y una de las dos llaves.
+        </p>
+      </Card>
+
       <Card className="space-y-3 text-sm">
-        <p>
-          Crea un archivo <code className="text-brand-soft">.env.local</code> en la raíz del
-          proyecto con tus credenciales:
-        </p>
-        <pre className="overflow-x-auto rounded-xl bg-surface-2 p-3 text-xs">
-          {'VITE_SUPABASE_URL=...\nVITE_SUPABASE_PUBLISHABLE_KEY=...'}
-        </pre>
+        <h2 className="text-sm font-semibold">En local</h2>
         <p className="text-muted">
-          Las consigues en Supabase con el botón <strong>Connect</strong>, o en{' '}
-          <strong>Settings &gt; API Keys</strong>. Luego reinicia{' '}
-          <code className="text-brand-soft">npm run dev</code>.
+          Pon los valores en <code className="text-brand-soft">myStock/.env.local</code> y
+          reinicia <code className="text-brand-soft">npm run dev</code>.
         </p>
+      </Card>
+
+      <Card className="space-y-3 text-sm">
+        <h2 className="text-sm font-semibold">En Vercel</h2>
         <p className="text-muted">
-          Falta también ejecutar <code className="text-brand-soft">supabase/schema.sql</code> en el
-          SQL Editor de tu proyecto para crear las tablas.
+          Settings &gt; Environment Variables, marcando <strong>Production</strong>. Vite inyecta
+          las variables durante el build, así que después hay que hacer{' '}
+          <strong>Redeploy</strong> sin caché.
         </p>
       </Card>
     </div>
