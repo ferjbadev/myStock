@@ -39,8 +39,8 @@ export default function App() {
     <div className="mx-auto max-w-md px-4 pt-6 pb-28">
       <div key={ciclo}>
         {tab === 'resumen' && <ResumenScreen onIrA={setTab} />}
-        {tab === 'gastos' && <GastosScreen />}
         {tab === 'ingresos' && <IngresosScreen />}
+        {tab === 'gastos' && <GastosScreen />}
         {tab === 'prestamos' && <PrestamosScreen />}
         {tab === 'deudas' && <DeudasScreen />}
       </div>

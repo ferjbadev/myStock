@@ -1,9 +1,10 @@
-export type TabId = 'resumen' | 'gastos' | 'ingresos' | 'prestamos' | 'deudas'
+export type TabId = 'resumen' | 'ingresos' | 'gastos' | 'prestamos' | 'deudas'
 
+/** El orden de este arreglo es el orden de la barra inferior. */
 const TABS: { id: TabId; label: string; path: string }[] = [
   { id: 'resumen', label: 'Resumen', path: 'M4 13h4v7H4zM10 8h4v12h-4zM16 4h4v16h-4z' },
-  { id: 'gastos', label: 'Gastos', path: 'M12 21l-8-8h5V3h6v10h5z' },
   { id: 'ingresos', label: 'Ingresos', path: 'M12 3l8 8h-5v10H9V11H4z' },
+  { id: 'gastos', label: 'Gastos', path: 'M12 21l-8-8h5V3h6v10h5z' },
   {
     id: 'prestamos',
     label: 'Préstamos',
