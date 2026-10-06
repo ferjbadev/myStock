@@ -1,22 +1,13 @@
-import { diasTranscurridos, hoyKey, mesActual, mesAnterior } from '../lib/dates'
-import { pendiente, sumarMontos } from '../lib/calculos'
+import type { Estado } from '../data/almacen'
 import type { MesKey, Resumen } from '../types'
-import { listarCierresRecientes } from './cierres'
-import { listarDeudas } from './deudas'
-import { listarGastosDelMes } from './gastos'
-import { listarIngresosDelMes } from './ingresos'
-import { listarPrestamos } from './prestamos'
+import { cierresDiarios, delMes, pendiente, sumarMontos } from './calculos'
+import { diasTranscurridos, hoyKey, mesActual, mesAnterior } from './dates'
 
-/** Carga todo lo que necesita la vista de Resumen en paralelo. */
-export async function cargarResumen(mes: MesKey): Promise<Resumen> {
-  const [gastos, ingresos, gastosPrevios, cierresRecientes, prestamos, deudas] = await Promise.all([
-    listarGastosDelMes(mes),
-    listarIngresosDelMes(mes),
-    listarGastosDelMes(mesAnterior(mes)),
-    listarCierresRecientes(7),
-    listarPrestamos(),
-    listarDeudas(),
-  ])
+/** Arma todo lo que muestra la vista de Resumen para un mes. */
+export function construirResumen(estado: Estado, mes: MesKey): Resumen {
+  const gastos = delMes(estado.gastos, mes)
+  const ingresos = delMes(estado.ingresos, mes)
+  const gastosPrevios = delMes(estado.gastos, mesAnterior(mes))
 
   const hoy = hoyKey()
   const esMesActual = mes === mesActual()
@@ -48,9 +39,9 @@ export async function cargarResumen(mes: MesKey): Promise<Resumen> {
     mesSaldo: mesIngresos - mesGastos,
     mesAnteriorGastos: sumarMontos(gastosPrevios),
     promedioDiario: mesGastos / diasTranscurridos(mes),
-    cierresRecientes,
-    porCobrar: prestamos.reduce((acc, p) => acc + pendiente(p), 0),
-    porPagar: deudas.reduce((acc, d) => acc + pendiente(d), 0),
+    cierresRecientes: cierresDiarios(estado.gastos, estado.ingresos, 7),
+    porCobrar: estado.prestamos.reduce((acc, p) => acc + pendiente(p), 0),
+    porPagar: estado.deudas.reduce((acc, d) => acc + pendiente(d), 0),
     ultimosMovimientos,
   }
 }

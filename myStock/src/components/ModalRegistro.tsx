@@ -7,7 +7,7 @@ interface Props {
   abierto: boolean
   onCerrar: () => void
   /** Se llama al guardar; si lanza error, se muestra y el modal sigue abierto. */
-  onGuardar: (nombre: string, monto: number) => Promise<void>
+  onGuardar: (nombre: string, monto: number) => void | Promise<void>
   etiquetaNombre?: string
   placeholderNombre?: string
   /** En false solo pide el monto (ej. registrar un abono). */

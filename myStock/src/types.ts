@@ -48,7 +48,6 @@ export interface CierreDiario {
   cantidadGastos: number
   cantidadIngresos: number
   saldo: number
-  cerradoEn: string
 }
 
 export type NuevoGasto = Omit<Gasto, 'id' | 'creadoEn'>

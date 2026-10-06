@@ -1,15 +1,6 @@
 import { useMemo, useState } from 'react'
 import ModalRegistro from '../components/ModalRegistro'
-import {
-  BarraProgreso,
-  BotonFlotante,
-  Card,
-  Cargando,
-  Encabezado,
-  MensajeError,
-  Vacio,
-} from '../components/ui'
-import { useQuery } from '../hooks/useQuery'
+import { BarraProgreso, BotonFlotante, Card, Encabezado, Vacio } from '../components/ui'
 import { estaLiquidado, pendiente } from '../lib/calculos'
 import { formatDiaCorto, formatUsd } from '../lib/format'
 
@@ -30,13 +21,13 @@ interface Props<T extends Compromiso> {
   etiquetaTotal: string
   /** Color de acento en hex. */
   acento: string
+  items: T[]
   nombreDe: (item: T) => string
   textoAbono: string
   textoVacio: string
-  cargar: () => Promise<T[]>
-  crear: (nombre: string, monto: number) => Promise<unknown>
-  actualizarPagado: (id: string, montoPagado: number) => Promise<void>
-  eliminar: (id: string) => Promise<void>
+  crear: (nombre: string, monto: number) => void
+  actualizarPagado: (id: string, montoPagado: number) => void
+  eliminar: (id: string) => void
 }
 
 /**
@@ -48,52 +39,41 @@ export default function CompromisosScreen<T extends Compromiso>({
   etiquetaPersona,
   etiquetaTotal,
   acento,
+  items,
   nombreDe,
   textoAbono,
   textoVacio,
-  cargar,
   crear,
   actualizarPagado,
   eliminar,
 }: Props<T>) {
-  const { data, loading, error, recargar } = useQuery(cargar)
   const [verLiquidados, setVerLiquidados] = useState(false)
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
   const [abonando, setAbonando] = useState<T | null>(null)
 
-  const { activos, liquidados, totalPendiente } = useMemo(() => {
-    const items = data ?? []
-    return {
+  const { activos, liquidados, totalPendiente } = useMemo(
+    () => ({
       activos: items.filter((i) => !estaLiquidado(i)),
       liquidados: items.filter(estaLiquidado),
       totalPendiente: items.reduce((acc, i) => acc + pendiente(i), 0),
-    }
-  }, [data])
+    }),
+    [items],
+  )
 
   const visibles = verLiquidados ? liquidados : activos
+  // El modal de abono guarda el item, así que hay que releerlo del listado
+  // para no mostrar un monto viejo después de un abono.
+  const enAbono = abonando ? (items.find((i) => i.id === abonando.id) ?? null) : null
 
-  async function guardarNuevo(nombre: string, monto: number) {
-    await crear(nombre, monto)
-    recargar()
-  }
-
-  async function guardarAbono(_nombre: string, monto: number) {
-    if (!abonando) return
-    await actualizarPagado(abonando.id, Math.min(abonando.monto, abonando.montoPagado + monto))
+  function guardarAbono(_nombre: string, monto: number) {
+    if (!enAbono) return
+    actualizarPagado(enAbono.id, Math.min(enAbono.monto, enAbono.montoPagado + monto))
     setAbonando(null)
-    recargar()
   }
 
-  async function liquidarTodo(item: T) {
-    await actualizarPagado(item.id, item.monto)
-    setAbonando(null)
-    recargar()
-  }
-
-  async function borrar(item: T) {
+  function borrar(item: T) {
     if (!confirm(`¿Eliminar el registro de ${nombreDe(item)}?`)) return
-    await eliminar(item.id)
-    recargar()
+    eliminar(item.id)
   }
 
   return (
@@ -131,11 +111,7 @@ export default function CompromisosScreen<T extends Compromiso>({
         ))}
       </div>
 
-      {error && <MensajeError mensaje={error} onReintentar={recargar} />}
-
-      {loading && !error ? (
-        <Cargando />
-      ) : visibles.length === 0 ? (
+      {visibles.length === 0 ? (
         <Card>
           <Vacio mensaje={verLiquidados ? 'Todavía no hay registros liquidados.' : textoVacio} />
         </Card>
@@ -162,9 +138,7 @@ export default function CompromisosScreen<T extends Compromiso>({
 
                   <div className="space-y-1">
                     <BarraProgreso porcentaje={avance} color={acento} />
-                    <p className="text-[11px] text-muted">
-                      Abonado {formatUsd(item.montoPagado)}
-                    </p>
+                    <p className="text-[11px] text-muted">Abonado {formatUsd(item.montoPagado)}</p>
                   </div>
 
                   <div className="flex gap-2">
@@ -180,7 +154,7 @@ export default function CompromisosScreen<T extends Compromiso>({
                     {falta > 0 && (
                       <button
                         type="button"
-                        onClick={() => liquidarTodo(item)}
+                        onClick={() => actualizarPagado(item.id, item.monto)}
                         className="rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-muted"
                       >
                         Liquidar
@@ -210,21 +184,21 @@ export default function CompromisosScreen<T extends Compromiso>({
         titulo={titulo}
         abierto={nuevoAbierto}
         onCerrar={() => setNuevoAbierto(false)}
-        onGuardar={guardarNuevo}
+        onGuardar={crear}
         etiquetaNombre={etiquetaPersona}
         placeholderNombre="Nombre"
       />
 
       <ModalRegistro
-        titulo={abonando ? `${textoAbono}: ${nombreDe(abonando)}` : textoAbono}
-        abierto={abonando !== null}
+        titulo={enAbono ? `${textoAbono}: ${nombreDe(enAbono)}` : textoAbono}
+        abierto={enAbono !== null}
         onCerrar={() => setAbonando(null)}
         onGuardar={guardarAbono}
         pedirNombre={false}
         textoBoton="Registrar"
         nota={
-          abonando
-            ? `Falta ${formatUsd(pendiente(abonando))} de ${formatUsd(abonando.monto)}.`
+          enAbono
+            ? `Falta ${formatUsd(pendiente(enAbono))} de ${formatUsd(enAbono.monto)}.`
             : undefined
         }
       />

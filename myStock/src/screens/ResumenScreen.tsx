@@ -1,17 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import SelectorMes from '../components/SelectorMes'
-import {
-  BarraProgreso,
-  Card,
-  Cargando,
-  Encabezado,
-  MensajeError,
-  Seccion,
-  Vacio,
-} from '../components/ui'
+import { BarraProgreso, Card, Encabezado, Seccion, Vacio } from '../components/ui'
 import { PRESUPUESTO_MENSUAL } from '../config'
-import { cargarResumen } from '../data/resumen'
-import { useQuery } from '../hooks/useQuery'
+import { useAlmacen } from '../hooks/useAlmacen'
 import { mesActual, msHastaMedianoche } from '../lib/dates'
 import {
   formatDiaRelativo,
@@ -20,6 +11,7 @@ import {
   formatRestante,
   formatUsd,
 } from '../lib/format'
+import { construirResumen } from '../lib/resumen'
 import type { TabId } from '../components/BottomNav'
 
 /** Tiempo que falta para el cierre del ciclo, actualizado cada medio minuto. */
@@ -48,16 +40,17 @@ interface Props {
 }
 
 export default function ResumenScreen({ onIrA }: Props) {
+  const estado = useAlmacen()
   const [mes, setMes] = useState(mesActual())
-  const cargar = useCallback(() => cargarResumen(mes), [mes])
-  const { data, loading, error, recargar } = useQuery(cargar)
   const restante = useCuentaRegresiva()
 
+  const data = useMemo(() => construirResumen(estado, mes), [estado, mes])
+
   const esMesActual = mes === mesActual()
-  const usado = data ? (data.mesGastos / PRESUPUESTO_MENSUAL) * 100 : 0
-  const libre = data ? PRESUPUESTO_MENSUAL - data.mesGastos : 0
+  const usado = (data.mesGastos / PRESUPUESTO_MENSUAL) * 100
+  const libre = PRESUPUESTO_MENSUAL - data.mesGastos
   const cambio =
-    data && data.mesAnteriorGastos > 0
+    data.mesAnteriorGastos > 0
       ? ((data.mesGastos - data.mesAnteriorGastos) / data.mesAnteriorGastos) * 100
       : null
 
@@ -69,153 +62,140 @@ export default function ResumenScreen({ onIrA }: Props) {
         acciones={<SelectorMes mes={mes} onChange={setMes} />}
       />
 
-      {error && <MensajeError mensaje={error} onReintentar={recargar} />}
-      {loading && !error && <Cargando filas={4} />}
-
-      {data && (
-        <>
-          {esMesActual && (
-            <Card className="bg-linear-to-br from-brand/25 via-surface to-surface">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted">Ciclo de hoy</p>
-                <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[11px] text-brand-soft">
-                  cierra en {formatRestante(restante)}
-                </span>
-              </div>
-              <p className="mt-1 text-4xl font-semibold tracking-tight">
-                {formatUsd(data.hoy.gastos)}
-              </p>
-              <p className="mt-1 text-xs text-muted">
-                gastado hoy · {data.hoy.movimientos}{' '}
-                {data.hoy.movimientos === 1 ? 'movimiento' : 'movimientos'}
-              </p>
-              <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
-                <Metrica
-                  label="Ingresos de hoy"
-                  valor={formatUsd(data.hoy.ingresos)}
-                  color="text-good"
-                />
-                <Metrica
-                  label="Saldo del día"
-                  valor={formatUsd(data.hoy.saldo)}
-                  color={data.hoy.saldo < 0 ? 'text-bad' : 'text-good'}
-                />
-              </dl>
-            </Card>
-          )}
-
-          <Card>
-            <p className="text-xs text-muted">Balance del mes</p>
-            <p
-              className={`mt-1 text-3xl font-semibold tracking-tight ${
-                data.mesSaldo < 0 ? 'text-bad' : 'text-good'
-              }`}
-            >
-              {formatUsd(data.mesSaldo)}
-            </p>
-            <dl className="mt-3 grid grid-cols-2 gap-3">
-              <Metrica label="Ingresos" valor={formatUsd(data.mesIngresos)} color="text-good" />
-              <Metrica label="Gastos" valor={formatUsd(data.mesGastos)} />
-            </dl>
-
-            <div className="mt-4">
-              <div className="mb-1.5 flex justify-between text-xs">
-                <span className="text-muted">Presupuesto {formatUsd(PRESUPUESTO_MENSUAL)}</span>
-                <span className={libre < 0 ? 'text-bad' : 'text-good'}>
-                  {libre < 0 ? `${formatUsd(-libre)} de más` : `${formatUsd(libre)} libres`}
-                </span>
-              </div>
-              <BarraProgreso porcentaje={usado} color={libre < 0 ? '#fb7185' : undefined} />
-            </div>
-
-            <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
-              <Metrica label="Promedio diario" valor={formatUsd(data.promedioDiario)} />
-              <Metrica
-                label="vs. mes anterior"
-                valor={cambio === null ? 'sin datos' : formatPorcentaje(cambio)}
-                color={cambio !== null && cambio > 0 ? 'text-bad' : 'text-good'}
-              />
-            </dl>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => onIrA('prestamos')} className="text-left">
-              <Card>
-                <p className="text-xs text-muted">Por cobrar</p>
-                <p className="mt-1 text-lg font-semibold text-good tabular-nums">
-                  {formatUsd(data.porCobrar)}
-                </p>
-                <p className="text-[11px] text-muted">mis préstamos</p>
-              </Card>
-            </button>
-            <button type="button" onClick={() => onIrA('deudas')} className="text-left">
-              <Card>
-                <p className="text-xs text-muted">Por pagar</p>
-                <p className="mt-1 text-lg font-semibold text-bad tabular-nums">
-                  {formatUsd(data.porPagar)}
-                </p>
-                <p className="text-[11px] text-muted">mis deudas</p>
-              </Card>
-            </button>
+      {esMesActual && (
+        <Card className="bg-linear-to-br from-brand/25 via-surface to-surface">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted">Ciclo de hoy</p>
+            <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[11px] text-brand-soft">
+              cierra en {formatRestante(restante)}
+            </span>
           </div>
-
-          <Seccion titulo="Cierres de los últimos días">
-            {data.cierresRecientes.length === 0 ? (
-              <Vacio mensaje="Todavía no hay ciclos cerrados." />
-            ) : (
-              <ul className="divide-y divide-line">
-                {data.cierresRecientes.map((cierre) => (
-                  <li key={cierre.fecha} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm capitalize">
-                        {formatDiaRelativo(cierre.fecha)}
-                      </p>
-                      <p className="text-[11px] text-muted">
-                        {formatUsd(cierre.totalIngresos)} entraron ·{' '}
-                        {formatUsd(cierre.totalGastos)} salieron
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 text-sm font-medium tabular-nums ${
-                        cierre.saldo < 0 ? 'text-bad' : 'text-good'
-                      }`}
-                    >
-                      {formatUsd(cierre.saldo)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Seccion>
-
-          <Seccion titulo="Últimos movimientos">
-            {data.ultimosMovimientos.length === 0 ? (
-              <Vacio mensaje="Registra tu primer movimiento del mes." />
-            ) : (
-              <ul className="divide-y divide-line">
-                {data.ultimosMovimientos.map((mov) => (
-                  <li key={mov.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm">{mov.nombre}</p>
-                      <p className="text-[11px] capitalize text-muted">
-                        {formatDiaRelativo(mov.fecha)}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 text-sm font-medium tabular-nums ${
-                        mov.tipo === 'ingreso' ? 'text-good' : ''
-                      }`}
-                    >
-                      {mov.tipo === 'ingreso' ? '+' : '-'}
-                      {formatUsd(mov.monto)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Seccion>
-        </>
+          <p className="mt-1 text-4xl font-semibold tracking-tight">{formatUsd(data.hoy.gastos)}</p>
+          <p className="mt-1 text-xs text-muted">
+            gastado hoy · {data.hoy.movimientos}{' '}
+            {data.hoy.movimientos === 1 ? 'movimiento' : 'movimientos'}
+          </p>
+          <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+            <Metrica
+              label="Ingresos de hoy"
+              valor={formatUsd(data.hoy.ingresos)}
+              color="text-good"
+            />
+            <Metrica
+              label="Saldo del día"
+              valor={formatUsd(data.hoy.saldo)}
+              color={data.hoy.saldo < 0 ? 'text-bad' : 'text-good'}
+            />
+          </dl>
+        </Card>
       )}
+
+      <Card>
+        <p className="text-xs text-muted">Balance del mes</p>
+        <p
+          className={`mt-1 text-3xl font-semibold tracking-tight ${
+            data.mesSaldo < 0 ? 'text-bad' : 'text-good'
+          }`}
+        >
+          {formatUsd(data.mesSaldo)}
+        </p>
+        <dl className="mt-3 grid grid-cols-2 gap-3">
+          <Metrica label="Ingresos" valor={formatUsd(data.mesIngresos)} color="text-good" />
+          <Metrica label="Gastos" valor={formatUsd(data.mesGastos)} />
+        </dl>
+
+        <div className="mt-4">
+          <div className="mb-1.5 flex justify-between text-xs">
+            <span className="text-muted">Presupuesto {formatUsd(PRESUPUESTO_MENSUAL)}</span>
+            <span className={libre < 0 ? 'text-bad' : 'text-good'}>
+              {libre < 0 ? `${formatUsd(-libre)} de más` : `${formatUsd(libre)} libres`}
+            </span>
+          </div>
+          <BarraProgreso porcentaje={usado} color={libre < 0 ? '#fb7185' : undefined} />
+        </div>
+
+        <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
+          <Metrica label="Promedio diario" valor={formatUsd(data.promedioDiario)} />
+          <Metrica
+            label="vs. mes anterior"
+            valor={cambio === null ? 'sin datos' : formatPorcentaje(cambio)}
+            color={cambio !== null && cambio > 0 ? 'text-bad' : 'text-good'}
+          />
+        </dl>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={() => onIrA('prestamos')} className="text-left">
+          <Card>
+            <p className="text-xs text-muted">Por cobrar</p>
+            <p className="mt-1 text-lg font-semibold text-good tabular-nums">
+              {formatUsd(data.porCobrar)}
+            </p>
+            <p className="text-[11px] text-muted">mis préstamos</p>
+          </Card>
+        </button>
+        <button type="button" onClick={() => onIrA('deudas')} className="text-left">
+          <Card>
+            <p className="text-xs text-muted">Por pagar</p>
+            <p className="mt-1 text-lg font-semibold text-bad tabular-nums">
+              {formatUsd(data.porPagar)}
+            </p>
+            <p className="text-[11px] text-muted">mis deudas</p>
+          </Card>
+        </button>
+      </div>
+
+      <Seccion titulo="Cierres de los últimos días">
+        {data.cierresRecientes.length === 0 ? (
+          <Vacio mensaje="Todavía no hay ciclos cerrados." />
+        ) : (
+          <ul className="divide-y divide-line">
+            {data.cierresRecientes.map((cierre) => (
+              <li key={cierre.fecha} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm capitalize">{formatDiaRelativo(cierre.fecha)}</p>
+                  <p className="text-[11px] text-muted">
+                    {formatUsd(cierre.totalIngresos)} entraron · {formatUsd(cierre.totalGastos)}{' '}
+                    salieron
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-sm font-medium tabular-nums ${
+                    cierre.saldo < 0 ? 'text-bad' : 'text-good'
+                  }`}
+                >
+                  {formatUsd(cierre.saldo)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Seccion>
+
+      <Seccion titulo="Últimos movimientos">
+        {data.ultimosMovimientos.length === 0 ? (
+          <Vacio mensaje="Registra tu primer movimiento del mes." />
+        ) : (
+          <ul className="divide-y divide-line">
+            {data.ultimosMovimientos.map((mov) => (
+              <li key={mov.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm">{mov.nombre}</p>
+                  <p className="text-[11px] capitalize text-muted">{formatDiaRelativo(mov.fecha)}</p>
+                </div>
+                <span
+                  className={`shrink-0 text-sm font-medium tabular-nums ${
+                    mov.tipo === 'ingreso' ? 'text-good' : ''
+                  }`}
+                >
+                  {mov.tipo === 'ingreso' ? '+' : '-'}
+                  {formatUsd(mov.monto)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Seccion>
     </div>
   )
 }
