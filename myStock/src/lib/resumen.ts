@@ -1,13 +1,12 @@
 import type { Estado } from '../data/almacen'
 import type { MesKey, Resumen } from '../types'
-import { cierresDiarios, delMes, pendiente, sumarMontos } from './calculos'
-import { diasTranscurridos, hoyKey, mesActual, mesAnterior } from './dates'
+import { delMes, pendiente, sumarMontos } from './calculos'
+import { hoyKey, mesActual } from './dates'
 
 /** Arma todo lo que muestra la vista de Resumen para un mes. */
 export function construirResumen(estado: Estado, mes: MesKey): Resumen {
   const gastos = delMes(estado.gastos, mes)
   const ingresos = delMes(estado.ingresos, mes)
-  const gastosPrevios = delMes(estado.gastos, mesAnterior(mes))
 
   const hoy = hoyKey()
   const esMesActual = mes === mesActual()
@@ -37,9 +36,6 @@ export function construirResumen(estado: Estado, mes: MesKey): Resumen {
     mesGastos,
     mesIngresos,
     mesSaldo: mesIngresos - mesGastos,
-    mesAnteriorGastos: sumarMontos(gastosPrevios),
-    promedioDiario: mesGastos / diasTranscurridos(mes),
-    cierresRecientes: cierresDiarios(estado.gastos, estado.ingresos, 7),
     porCobrar: estado.prestamos.reduce((acc, p) => acc + pendiente(p), 0),
     porPagar: estado.deudas.reduce((acc, d) => acc + pendiente(d), 0),
     ultimosMovimientos,
