@@ -41,15 +41,6 @@ export interface Deuda {
 }
 
 /** Consolidado de un ciclo de 24 h ya terminado. */
-export interface CierreDiario {
-  fecha: DiaKey
-  totalGastos: number
-  totalIngresos: number
-  cantidadGastos: number
-  cantidadIngresos: number
-  saldo: number
-}
-
 export type NuevoGasto = Omit<Gasto, 'id' | 'creadoEn'>
 export type NuevoIngreso = Omit<Ingreso, 'id' | 'creadoEn'>
 export type NuevoPrestamo = Omit<Prestamo, 'id' | 'creadoEn' | 'montoPagado'>
@@ -62,10 +53,6 @@ export interface Resumen {
   mesGastos: number
   mesIngresos: number
   mesSaldo: number
-  /** Gastos del mes anterior, para comparar. */
-  mesAnteriorGastos: number
-  promedioDiario: number
-  cierresRecientes: CierreDiario[]
   porCobrar: number
   porPagar: number
   ultimosMovimientos: (
