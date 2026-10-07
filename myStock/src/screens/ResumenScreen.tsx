@@ -4,13 +4,7 @@ import { BarraProgreso, Card, Encabezado, Seccion, Vacio } from '../components/u
 import { PRESUPUESTO_MENSUAL } from '../config'
 import { useAlmacen } from '../hooks/useAlmacen'
 import { mesActual, msHastaMedianoche } from '../lib/dates'
-import {
-  formatDiaRelativo,
-  formatMes,
-  formatPorcentaje,
-  formatRestante,
-  formatUsd,
-} from '../lib/format'
+import { formatDiaRelativo, formatMes, formatRestante, formatUsd } from '../lib/format'
 import { construirResumen } from '../lib/resumen'
 import type { TabId } from '../components/BottomNav'
 
@@ -49,10 +43,6 @@ export default function ResumenScreen({ onIrA }: Props) {
   const esMesActual = mes === mesActual()
   const usado = (data.mesGastos / PRESUPUESTO_MENSUAL) * 100
   const libre = PRESUPUESTO_MENSUAL - data.mesGastos
-  const cambio =
-    data.mesAnteriorGastos > 0
-      ? ((data.mesGastos - data.mesAnteriorGastos) / data.mesAnteriorGastos) * 100
-      : null
 
   return (
     <div className="space-y-4">
@@ -91,15 +81,7 @@ export default function ResumenScreen({ onIrA }: Props) {
       )}
 
       <Card>
-        <p className="text-xs text-muted">Balance del mes</p>
-        <p
-          className={`mt-1 text-3xl font-semibold tracking-tight ${
-            data.mesSaldo < 0 ? 'text-bad' : 'text-good'
-          }`}
-        >
-          {formatUsd(data.mesSaldo)}
-        </p>
-        <dl className="mt-3 grid grid-cols-2 gap-3">
+        <dl className="grid grid-cols-2 gap-3">
           <Metrica label="Ingresos" valor={formatUsd(data.mesIngresos)} color="text-good" />
           <Metrica label="Gastos" valor={formatUsd(data.mesGastos)} />
         </dl>
@@ -113,15 +95,6 @@ export default function ResumenScreen({ onIrA }: Props) {
           </div>
           <BarraProgreso porcentaje={usado} color={libre < 0 ? '#fb7185' : undefined} />
         </div>
-
-        <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3">
-          <Metrica label="Promedio diario" valor={formatUsd(data.promedioDiario)} />
-          <Metrica
-            label="vs. mes anterior"
-            valor={cambio === null ? 'sin datos' : formatPorcentaje(cambio)}
-            color={cambio !== null && cambio > 0 ? 'text-bad' : 'text-good'}
-          />
-        </dl>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
@@ -144,33 +117,6 @@ export default function ResumenScreen({ onIrA }: Props) {
           </Card>
         </button>
       </div>
-
-      <Seccion titulo="Cierres de los últimos días">
-        {data.cierresRecientes.length === 0 ? (
-          <Vacio mensaje="Todavía no hay ciclos cerrados." />
-        ) : (
-          <ul className="divide-y divide-line">
-            {data.cierresRecientes.map((cierre) => (
-              <li key={cierre.fecha} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm capitalize">{formatDiaRelativo(cierre.fecha)}</p>
-                  <p className="text-[11px] text-muted">
-                    {formatUsd(cierre.totalIngresos)} entraron · {formatUsd(cierre.totalGastos)}{' '}
-                    salieron
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-sm font-medium tabular-nums ${
-                    cierre.saldo < 0 ? 'text-bad' : 'text-good'
-                  }`}
-                >
-                  {formatUsd(cierre.saldo)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Seccion>
 
       <Seccion titulo="Últimos movimientos">
         {data.ultimosMovimientos.length === 0 ? (
