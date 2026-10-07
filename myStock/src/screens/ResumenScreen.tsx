@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import SelectorMes from '../components/SelectorMes'
-import { BarraProgreso, Card, Encabezado, Seccion, Vacio } from '../components/ui'
-import { PRESUPUESTO_MENSUAL } from '../config'
+import { Card, Encabezado, Seccion, Vacio } from '../components/ui'
 import { useAlmacen } from '../hooks/useAlmacen'
 import { mesActual, msHastaMedianoche } from '../lib/dates'
 import { formatDiaRelativo, formatMes, formatRestante, formatUsd } from '../lib/format'
@@ -41,8 +40,6 @@ export default function ResumenScreen({ onIrA }: Props) {
   const data = useMemo(() => construirResumen(estado, mes), [estado, mes])
 
   const esMesActual = mes === mesActual()
-  const usado = (data.mesGastos / PRESUPUESTO_MENSUAL) * 100
-  const libre = PRESUPUESTO_MENSUAL - data.mesGastos
 
   return (
     <div className="space-y-4">
@@ -85,16 +82,6 @@ export default function ResumenScreen({ onIrA }: Props) {
           <Metrica label="Ingresos" valor={formatUsd(data.mesIngresos)} color="text-good" />
           <Metrica label="Gastos" valor={formatUsd(data.mesGastos)} />
         </dl>
-
-        <div className="mt-4">
-          <div className="mb-1.5 flex justify-between text-xs">
-            <span className="text-muted">Presupuesto {formatUsd(PRESUPUESTO_MENSUAL)}</span>
-            <span className={libre < 0 ? 'text-bad' : 'text-good'}>
-              {libre < 0 ? `${formatUsd(-libre)} de más` : `${formatUsd(libre)} libres`}
-            </span>
-          </div>
-          <BarraProgreso porcentaje={usado} color={libre < 0 ? '#fb7185' : undefined} />
-        </div>
       </Card>
 
       <div className="grid grid-cols-2 gap-3">
