@@ -1,5 +1,4 @@
-import type { CierreDiario, DiaKey, Gasto, Ingreso, MesKey } from '../types'
-import { hoyKey } from './dates'
+import type { DiaKey, MesKey } from '../types'
 
 export function sumarMontos(items: { monto: number }[]): number {
   return items.reduce((acc, item) => acc + item.monto, 0)
@@ -44,49 +43,4 @@ export function agruparPorDia<T extends { fecha: DiaKey; monto: number }>(
   return [...grupos.entries()]
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([dia, lista]) => ({ dia, items: lista, total: sumarMontos(lista) }))
-}
-
-/**
- * Consolidado de los ciclos de 24 h que ya terminaron, del más reciente al más
- * viejo. Se calcula a partir de los movimientos: un día queda "cerrado" en
- * cuanto pasa la medianoche.
- */
-export function cierresDiarios(
-  gastos: Gasto[],
-  ingresos: Ingreso[],
-  limite = 7,
-): CierreDiario[] {
-  const hoy = hoyKey()
-  const porDia = new Map<DiaKey, CierreDiario>()
-
-  const obtener = (fecha: DiaKey): CierreDiario => {
-    const actual = porDia.get(fecha) ?? {
-      fecha,
-      totalGastos: 0,
-      totalIngresos: 0,
-      cantidadGastos: 0,
-      cantidadIngresos: 0,
-      saldo: 0,
-    }
-    porDia.set(fecha, actual)
-    return actual
-  }
-
-  for (const gasto of gastos) {
-    if (gasto.fecha >= hoy) continue
-    const cierre = obtener(gasto.fecha)
-    cierre.totalGastos += gasto.monto
-    cierre.cantidadGastos += 1
-  }
-  for (const ingreso of ingresos) {
-    if (ingreso.fecha >= hoy) continue
-    const cierre = obtener(ingreso.fecha)
-    cierre.totalIngresos += ingreso.monto
-    cierre.cantidadIngresos += 1
-  }
-
-  return [...porDia.values()]
-    .map((cierre) => ({ ...cierre, saldo: cierre.totalIngresos - cierre.totalGastos }))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
-    .slice(0, limite)
 }
